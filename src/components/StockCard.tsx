@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select } from "@/components/ui/select"
 import { ArrowUpIcon, ArrowDownIcon } from 'lucide-react';
 import { Stock } from '@/types/types';
 
@@ -31,7 +31,7 @@ export const StockCard: React.FC<StockCardProps> = ({ stock, onBuy, onSell }) =>
           {priceChange >= 0 ? <ArrowUpIcon size={16} /> : <ArrowDownIcon size={16} />}
           {roundToTwoDecimal(Math.abs(priceChange)).toFixed(2)} ({roundToTwoDecimal(Math.abs(priceChangePercent)).toFixed(2)}%)
         </p>
-        <div className="my-4">
+        <div className="my-2">
           <p  className="mb-2">売買単位（株）</p>
           <Select value={tradeAmount} onValueChange={setTradeAmount}>
             <option value="1">1</option>
@@ -40,7 +40,7 @@ export const StockCard: React.FC<StockCardProps> = ({ stock, onBuy, onSell }) =>
             <option value="1000">1000</option>
           </Select>
         </div>
-        <div className="mt-4 flex justify-between">
+        <div className="flex justify-between">
           <Button onClick={() => onBuy(stock.name, parseInt(tradeAmount))}>買う</Button>
           <Button onClick={() => onSell(stock.name, parseInt(tradeAmount))} variant="outline">売る</Button>
         </div>

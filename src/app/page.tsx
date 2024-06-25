@@ -1,6 +1,6 @@
 'use client';
 
-import React,{ useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useStockGame } from '@/hooks/useStockGame';
 import { StockCard } from '@/components/StockCard';
 import { NewsSection } from '@/components/NewsSection';
@@ -10,6 +10,9 @@ import { GameTimer } from '@/components/GameTimer';
 import { TradeHistory } from '@/components/TradeHistory';
 import { Button } from '@/components/ui/button';
 import { exportToCSV } from '@/utils/csvExport';
+import { Stock } from '@/types/types';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   const { 
@@ -23,8 +26,23 @@ function App() {
     startGame, 
     pauseGame, 
     gameTime,
-    setPortfolioAndCash 
+    setPortfolioAndCash,
+    resetGame
   } = useStockGame();
+
+  const [portfolioHistory, setPortfolioHistory] = useState<{ date: Date; totalValue: number }[]>([]);
+
+  useEffect(() => {
+    const totalValue = calculateTotalValue();
+    setPortfolioHistory(prev => [...prev, { date: new Date(), totalValue }]);
+  }, [cash, portfolio, stocks]);
+
+  const calculateTotalValue = () => {
+    return roundToTwoDecimal(cash + Object.entries(portfolio).reduce((sum, [company, amount]) => {
+      const stock = stocks.find(s => s.name === company);
+      return sum + (stock ? stock.price * amount : 0);
+    }, 0));
+  };
 
   const roundToTwoDecimal = (num: number) => Math.round(num * 100) / 100;
 
@@ -40,17 +58,20 @@ function App() {
       ])
     ];
     exportToCSV(data, 'trades.csv');
+    toast.success('取引履歴をエクスポートしました');
   };
 
-  const exportStockHistory = (stock: { name: string; history: number[] }) => {
+  const exportStockHistory = (stocks: Stock[]) => {
     const data = [
-      ['Time', 'Price'],
-      ...stock.history.map((price, index) => [index, roundToTwoDecimal(price).toFixed(2)])
+      ['Time', ...stocks.map(stock => stock.name)],
+      ...stocks[0].history.map((_, index) => 
+        [index, ...stocks.map(stock => roundToTwoDecimal(stock.history[index]).toFixed(2))]
+      )
     ];
-    exportToCSV(data, `${stock.name}_history.csv`);
+    exportToCSV(data, 'all_stocks_history.csv');
+    toast.success('株価履歴をエクスポートしました');
   };
 
-  // 新しい関数: ニュース履歴のエクスポート
   const exportNewsHistory = () => {
     const data = [
       ['Time', 'Content', 'Affected Company'],
@@ -61,14 +82,11 @@ function App() {
       ])
     ];
     exportToCSV(data, 'news_history.csv');
+    toast.success('ニュース履歴をエクスポートしました');
   };
 
-  // 新しい関数: ポートフォリオのエクスポート
   const exportPortfolio = () => {
-    const totalValue = roundToTwoDecimal(cash + Object.entries(portfolio).reduce((sum, [company, amount]) => {
-      const stock = stocks.find(s => s.name === company);
-      return sum + (stock ? stock.price * amount : 0);
-    }, 0));
+    const totalValue = calculateTotalValue();
 
     const data = [
       ['Asset', 'Amount', 'Value'],
@@ -81,9 +99,9 @@ function App() {
       ['Total', '-', totalValue.toFixed(2)]
     ];
     exportToCSV(data, 'portfolio.csv');
+    toast.success('ポートフォリオをエクスポートしました');
   };
 
-  // formatTime 関数の定義（既に定義されている場合は不要）
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -98,51 +116,6 @@ function App() {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        try {
-          if (file.name.endsWith('.json')) {
-            const data = JSON.parse(content);
-            if (typeof data.cash === 'number' && !isNaN(data.cash) && typeof data.portfolio === 'object') {
-              setPortfolioAndCash(data.portfolio, data.cash);
-            } else {
-              throw new Error('Invalid JSON format');
-            }
-          } else if (file.name.endsWith('.csv')) {
-            const lines = content.split('\n');
-            const header = lines[0].split(',');
-            const cashIndex = header.indexOf('Value');
-            const data = lines.slice(1).reduce((acc: { portfolio: Record<string, number>, cash: number }, line) => {
-              const values = line.split(',');
-              if (values[0] !== 'Cash' && values[0] !== 'Total') {
-                const amount = parseInt(values[1]);
-                if (!isNaN(amount)) {
-                  acc.portfolio[values[0]] = amount;
-                }
-              } else if (values[0] === 'Cash') {
-                acc.cash = parseFloat(values[cashIndex]);
-              }
-              return acc;
-            }, { portfolio: {}, cash: 0 });
-            setPortfolioAndCash(data.portfolio, data.cash);
-          }
-        } catch (error) {
-          console.error('Error parsing file:', error);
-          alert('ファイルの解析に失敗しました。');
-        }
-      };
-      if (file.name.endsWith('.json') || file.name.endsWith('.csv')) {
-        reader.readAsText(file);
-      } else {
-        alert('JSONまたはCSVファイルをアップロードしてください。');
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-500 p-4">
       <div className="flex flex-col md:flex-row md:justify-between items-center mb-4 space-y-4 md:space-y-0">
@@ -152,24 +125,21 @@ function App() {
           <Button onClick={isRunning ? pauseGame : startGame}>
             {isRunning ? '一時停止' : 'スタート'}
           </Button>
+          <Button onClick={resetGame}>リセット</Button>
         </div>
       </div>
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        onChange={handleFileUpload}
-        accept=".json,.csv"
-      />
+      <div className="mt-4">
+        <NewsSection newsHistory={newsHistory} onExport={exportNewsHistory} />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <NewsSection newsHistory={newsHistory} onExport={exportNewsHistory} />
+        <div className="mt-4">
           <PortfolioSection 
             cash={cash} 
             portfolio={portfolio} 
             stocks={stocks} 
             onExport={exportPortfolio}
-            onImport={importPortfolio} 
+            onImport={importPortfolio}
+            portfolioHistory={portfolioHistory}
           />
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -184,19 +154,17 @@ function App() {
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-          {stocks.map(stock => (
-            <StockChart 
-              key={stock.name} 
-              stock={stock} 
-              onExport={exportStockHistory}
-            />
-          ))}
+        <div className="mt-4">
+          <StockChart 
+            stocks={stocks} 
+            onExport={exportStockHistory}
+          />
         </div>
         <div className="mt-4">
           <TradeHistory trades={trades} onExport={exportTrades} />
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 }

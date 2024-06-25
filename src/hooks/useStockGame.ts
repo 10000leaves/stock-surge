@@ -35,7 +35,7 @@ export const useStockGame = () => {
       });
     });
 
-    setGameTime(prev => prev + 3); // 3秒ごとに更新
+    setGameTime(prev => prev + 5); // 5秒ごとに更新
   }, [isRunning, gameTime]);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export const useStockGame = () => {
       return;
     }
 
-    setCash(prevCash => isBuying ? prevCash - cost : prevCash + cost);
+    setCash(prevCash => roundToTwoDecimal(isBuying ? prevCash - cost : prevCash + cost));
     setPortfolio(prevPortfolio => ({
       ...prevPortfolio,
       [companyName]: (prevPortfolio[companyName] || 0) + (isBuying ? amount : -amount),
@@ -80,7 +80,6 @@ export const useStockGame = () => {
   }, []);
 
   const setPortfolioAndCash = useCallback((newPortfolio: Record<string, number>, newCash: number) => {
-    // ポートフォリオの各値が数値であることを確認
     const validPortfolio = Object.entries(newPortfolio).reduce((acc, [key, value]) => {
       if (typeof value === 'number' && !isNaN(value)) {
         acc[key] = value;
@@ -88,12 +87,34 @@ export const useStockGame = () => {
       return acc;
     }, {} as Record<string, number>);
 
-    // 現金が数値であることを確認
     const validCash = typeof newCash === 'number' && !isNaN(newCash) ? newCash : 0;
 
     setPortfolio(validPortfolio);
     setCash(validCash);
   }, []);
 
-  return { stocks, cash, portfolio, newsHistory, trades, tradeStock, isRunning, startGame, pauseGame, gameTime, setPortfolioAndCash };
+  const resetGame = useCallback(() => {
+    setStocks(COMPANIES.map(name => ({ name, price: 100, history: [100] })));
+    setCash(INITIAL_CASH);
+    setPortfolio({});
+    setTrades([]);
+    setNewsHistory([]);
+    setGameTime(0);
+    setIsRunning(false);
+  }, []);
+
+  return { 
+    stocks, 
+    cash, 
+    portfolio, 
+    newsHistory, 
+    trades, 
+    tradeStock, 
+    isRunning, 
+    startGame, 
+    pauseGame, 
+    gameTime, 
+    setPortfolioAndCash,
+    resetGame
+  };
 };

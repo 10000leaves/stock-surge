@@ -16,7 +16,7 @@ export const TradeHistory: React.FC<TradeHistoryProps> = ({ trades, onExport }) 
         <Button onClick={onExport}>エクスポート</Button>
       </CardHeader>
       <CardContent>
-        <div className="h-64 lg:h-96 overflow-auto">
+        <div className="h-64 lg:h-80 overflow-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-700">

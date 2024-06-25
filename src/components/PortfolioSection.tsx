@@ -1,24 +1,60 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { Stock } from '@/types/types';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { DragSourceMonitor, DropTargetMonitor } from 'react-dnd';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface PortfolioSectionProps {
   cash: number;
   portfolio: Record<string, number>;
   stocks: Stock[];
   onExport: () => void;
-  onImport: () => void;
+  onImport: (portfolio: Record<string, number>, cash: number) => void;
+  portfolioHistory: { date: Date; totalValue: number }[];
 }
+
+const DraggableAsset: React.FC<{ name: string; value: number; onDrop: (from: string, to: string) => void }> = ({ name, value, onDrop }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: 'asset',
+    item: { name },
+    collect: (monitor: DragSourceMonitor) => ({
+      isDragging: !!monitor.isDragging(),
+    }),
+  }));
+
+  const [, drop] = useDrop(() => ({
+    accept: 'asset',
+    drop: (item: { name: string }, monitor: DropTargetMonitor) => onDrop(item.name, name),
+  }));
+
+  drag(drop(ref));
+
+  return (
+    <div ref={ref} className="opacity-100 hover:opacity-80 cursor-move p-2 m-1 border border-gray-300 rounded-md transition-opacity duration-200">
+      {name}: ${value.toFixed(2)}
+    </div>
+  );
+};
+
 
 export const PortfolioSection: React.FC<PortfolioSectionProps> = ({ 
   cash, 
   portfolio, 
   stocks, 
   onExport, 
-  onImport 
+  onImport,
+  portfolioHistory
 }) => {
+  const [fileType, setFileType] = useState<'json' | 'csv'>('json');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   const roundToTwoDecimal = (num: number) => Math.round(num * 100) / 100;
 
   const totalValue = roundToTwoDecimal(cash + Object.entries(portfolio).reduce((sum, [company, amount]) => {
@@ -58,61 +94,146 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
         fill="black"
         textAnchor={x > cx ? 'start' : 'end'}
         dominantBaseline="central"
-        fontSize="16"
+        fontSize="12"
       >
         {`${name} ${(percent * 100).toFixed(0)}%`}
       </text>
     );
   };
 
+  const calculateDiversityScore = () => {
+    const totalAssets = pieData.reduce((sum, asset) => sum + asset.value, 0);
+    const proportions = pieData.map(asset => asset.value / totalAssets);
+    return 1 - Math.sqrt(proportions.reduce((sum, p) => sum + p * p, 0));
+  };
+
+  const calculatePerformance = () => {
+    if (portfolioHistory.length < 2) return { totalProfit: 0, profitRate: 0 };
+    const initialValue = portfolioHistory[0].totalValue;
+    const currentValue = portfolioHistory[portfolioHistory.length - 1].totalValue;
+    const totalProfit = currentValue - initialValue;
+    const profitRate = (totalProfit / initialValue) * 100;
+    return { totalProfit, profitRate };
+  };
+
+  const handleImport = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        try {
+          if (fileType === 'json') {
+            const data = JSON.parse(content);
+            if (typeof data.cash === 'number' && typeof data.portfolio === 'object') {
+              onImport(data.portfolio, data.cash);
+            } else {
+              throw new Error('Invalid JSON format');
+            }
+          } else if (fileType === 'csv') {
+            // CSVの解析ロジックをここに実装
+          }
+        } catch (error) {
+          console.error('Error parsing file:', error);
+          alert('ファイルの解析に失敗しました。');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleDrop = (from: string, to: string) => {
+    console.log(`Move from ${from} to ${to}`);
+    // 実際の再配分ロジックはここに追加する必要があります
+  };
+
+  const { totalProfit, profitRate } = calculatePerformance();
+
   return (
-    <Card>
-      <CardHeader className="flex flex-col sm:flex-row justify-between items-center">
-        <CardTitle className="mb-2 sm:mb-0">ポートフォリオ</CardTitle>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={onImport}>インポート</Button>
-          <Button onClick={onExport}>エクスポート</Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div>
-          <p className="font-bold">総資産: ${totalValue.toFixed(2)}</p>
-          <p>現金: ${roundToTwoDecimal(cash).toFixed(2)}</p>
-          <ul className="mt-2">
-            {Object.entries(portfolio).map(([company, amount]) => {
-              const stock = stocks.find(s => s.name === company);
-              const value = stock ? roundToTwoDecimal(stock.price * amount) : 0;
-              return (
-                <li key={company} className="flex justify-between">
-                  <span>{company}: {amount}株</span>
-                  <span>${value.toFixed(2)}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-        <div className="mt-2">
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-                label={renderCustomizedLabel}
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => `$${roundToTwoDecimal(value as number).toFixed(2)}`} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+    <DndProvider backend={HTML5Backend}>
+      <Card className="bg-gray-800">
+        <CardHeader className="flex flex-col sm:flex-row justify-between items-center">
+          <CardTitle className="mb-2 sm:mb-0">ポートフォリオ</CardTitle>
+          <div className="flex flex-wrap gap-2">
+            <select value={fileType} onChange={(e) => setFileType(e.target.value as 'json' | 'csv')} className="p-2 border rounded">
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+            </select>
+            <Button onClick={handleImport}>インポート</Button>
+            <Button onClick={onExport}>エクスポート</Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileUpload}
+              accept={fileType === 'json' ? '.json' : '.csv'}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <p className="font-bold text-xl">総資産: ${totalValue.toFixed(2)}</p>
+              <p>現金: ${roundToTwoDecimal(cash).toFixed(2)}</p>
+              <p>多様性スコア: {calculateDiversityScore().toFixed(2)}</p>
+              <p>総利益: ${totalProfit.toFixed(2)} ({profitRate.toFixed(2)}%)</p>
+              <Button className="mt-2" onClick={() => setIsDialogOpen(true)}>詳細を表示</Button>
+              <Dialog isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>資産内訳</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    {pieData.map((asset) => (
+                      <DraggableAsset key={asset.name} name={asset.name} value={asset.value} onDrop={handleDrop} />
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <div className="mt-4">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={renderCustomizedLabel}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `$${roundToTwoDecimal(value as number).toFixed(2)}`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-bold mb-2">ポートフォリオ推移:</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={portfolioHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="totalValue" stroke="#8884d8" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </DndProvider>
   );
 };
