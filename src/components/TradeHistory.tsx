@@ -16,7 +16,7 @@ export const TradeHistory: React.FC<TradeHistoryProps> = ({ trades, onExport }) 
         <Button onClick={onExport}>エクスポート</Button>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        <div className="h-64 lg:h-96 overflow-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-700">
@@ -24,7 +24,7 @@ export const TradeHistory: React.FC<TradeHistoryProps> = ({ trades, onExport }) 
                 <th className="px-4 py-2 text-left">企業</th>
                 <th className="px-4 py-2 text-right">数量</th>
                 <th className="px-4 py-2 text-right">価格</th>
-                <th className="px-4 py-2 text-center">タイプ</th>
+                <th className="px-4 py-2 text-center">取引</th>
               </tr>
             </thead>
             <tbody>
@@ -35,7 +35,7 @@ export const TradeHistory: React.FC<TradeHistoryProps> = ({ trades, onExport }) 
                   <td className="px-4 py-2 text-right">{trade.amount}</td>
                   <td className="px-4 py-2 text-right">${trade.price.toFixed(2)}</td>
                   <td className="px-4 py-2 text-center">
-                    <span className={`px-2 py-1 rounded ${trade.type === 'buy' ? 'bg-green-600' : 'bg-red-600'}`}>
+                    <span className={`px-2 py-1 rounded text-white ${trade.type === 'buy' ? 'bg-green-600' : 'bg-red-600'}`}>
                       {trade.type === 'buy' ? '買' : '売'}
                     </span>
                   </td>

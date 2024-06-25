@@ -14,7 +14,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({ gameTime }) => {
 
   return (
     <div className="bg-white mx-2 px-2 py-1 rounded-lg">
-      <p className="text-2xl font-bold">{`経過時間：${formatTime(gameTime)}`}</p>
+      <p className="text-2xl font-bold whitespace-nowrap">{`経過時間：${formatTime(gameTime)}`}</p>
     </div>
   );
 };

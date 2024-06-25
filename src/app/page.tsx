@@ -144,12 +144,12 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4">
-      <div className="flex justify-between items-center mb-4">
+    <div className="min-h-screen bg-slate-500 p-4">
+      <div className="flex flex-col md:flex-row md:justify-between items-center mb-4 space-y-4 md:space-y-0">
         <h1 className="text-3xl text-white font-bold">Stock Surge 株取引ゲーム</h1>
-        <div className="flex items-center">
+        <div className="flex items-center space-x-4">
           <GameTimer gameTime={gameTime} />
-          <Button onClick={isRunning? pauseGame : startGame }>
+          <Button onClick={isRunning ? pauseGame : startGame}>
             {isRunning ? '一時停止' : 'スタート'}
           </Button>
         </div>
@@ -161,37 +161,41 @@ function App() {
         onChange={handleFileUpload}
         accept=".json,.csv"
       />
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <NewsSection newsHistory={newsHistory} onExport={exportNewsHistory} />
-        <PortfolioSection 
-          cash={cash} 
-          portfolio={portfolio} 
-          stocks={stocks} 
-          onExport={exportPortfolio}
-          onImport={importPortfolio} 
-        />
-      </div>
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stocks.map(stock => (
-          <StockCard 
-            key={stock.name} 
-            stock={stock} 
-            onBuy={(name, amount) => tradeStock(name, amount, true)}
-            onSell={(name, amount) => tradeStock(name, amount, false)}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <NewsSection newsHistory={newsHistory} onExport={exportNewsHistory} />
+          <PortfolioSection 
+            cash={cash} 
+            portfolio={portfolio} 
+            stocks={stocks} 
+            onExport={exportPortfolio}
+            onImport={importPortfolio} 
           />
-        ))}
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          {stocks.map(stock => (
+            <StockCard 
+              key={stock.name} 
+              stock={stock} 
+              onBuy={(name, amount) => tradeStock(name, amount, true)}
+              onSell={(name, amount) => tradeStock(name, amount, false)}
+            />
+          ))}
+        </div>
       </div>
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stocks.map(stock => (
-          <StockChart 
-            key={stock.name} 
-            stock={stock} 
-            onExport={exportStockHistory}
-          />
-        ))}
-      </div>
-      <div className="mt-8">
-        <TradeHistory trades={trades} onExport={exportTrades} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          {stocks.map(stock => (
+            <StockChart 
+              key={stock.name} 
+              stock={stock} 
+              onExport={exportStockHistory}
+            />
+          ))}
+        </div>
+        <div className="mt-4">
+          <TradeHistory trades={trades} onExport={exportTrades} />
+        </div>
       </div>
     </div>
   );

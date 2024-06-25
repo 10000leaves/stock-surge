@@ -16,7 +16,7 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ newsHistory, onExport 
         <Button onClick={onExport}>エクスポート</Button>
       </CardHeader>
       <CardContent>
-        <div className="h-64 overflow-y-auto">
+        <div className="h-64 md:h-96 overflow-y-auto">
           {newsHistory.slice().reverse().map((news, index) => (
             <div key={index} className="mb-2 p-2 bg-gray-100 rounded">
               <p className="text-sm text-gray-600">{formatTime(news.time ? news.time : 0)}</p>
