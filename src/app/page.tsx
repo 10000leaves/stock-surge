@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React from 'react';
 import { useStockGame } from '@/hooks/useStockGame';
 import { StockCard } from '@/components/StockCard';
 import { NewsSection } from '@/components/NewsSection';
@@ -9,9 +9,7 @@ import { StockChart } from '@/components/StockChart';
 import { GameTimer } from '@/components/GameTimer';
 import { TradeHistory } from '@/components/TradeHistory';
 import { Button } from '@/components/ui/button';
-import { exportToCSV } from '@/utils/csvExport';
-import { Stock } from '@/types/types';
-import { toast, ToastContainer } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
@@ -26,95 +24,14 @@ function App() {
     startGame, 
     pauseGame, 
     gameTime,
-    setPortfolioAndCash,
-    resetGame
+    resetGame,
+    portfolioHistory,
+    exportTrades,
+    exportStockHistory,
+    exportNewsHistory,
+    exportPortfolio,
+    setPortfolioAndCash
   } = useStockGame();
-
-  const [portfolioHistory, setPortfolioHistory] = useState<{ date: Date; totalValue: number }[]>([]);
-
-  useEffect(() => {
-    const totalValue = calculateTotalValue();
-    setPortfolioHistory(prev => [...prev, { date: new Date(), totalValue }]);
-  }, [cash, portfolio, stocks]);
-
-  const calculateTotalValue = () => {
-    return roundToTwoDecimal(cash + Object.entries(portfolio).reduce((sum, [company, amount]) => {
-      const stock = stocks.find(s => s.name === company);
-      return sum + (stock ? stock.price * amount : 0);
-    }, 0));
-  };
-
-  const roundToTwoDecimal = (num: number) => Math.round(num * 100) / 100;
-
-  const exportTrades = () => {
-    const data = [
-      ['Date', 'Company', 'Amount', 'Price', 'Type'],
-      ...trades.map(trade => [
-        trade.date.toISOString(),
-        trade.company,
-        trade.amount,
-        roundToTwoDecimal(trade.price).toFixed(2),
-        trade.type
-      ])
-    ];
-    exportToCSV(data, 'trades.csv');
-    toast.success('取引履歴をエクスポートしました');
-  };
-
-  const exportStockHistory = (stocks: Stock[]) => {
-    const data = [
-      ['Time', ...stocks.map(stock => stock.name)],
-      ...stocks[0].history.map((_, index) => 
-        [index, ...stocks.map(stock => roundToTwoDecimal(stock.history[index]).toFixed(2))]
-      )
-    ];
-    exportToCSV(data, 'all_stocks_history.csv');
-    toast.success('株価履歴をエクスポートしました');
-  };
-
-  const exportNewsHistory = () => {
-    const data = [
-      ['Time', 'Content', 'Affected Company'],
-      ...newsHistory.map(news => [
-        formatTime(news.time ? news.time : 0),
-        news.content,
-        news.company
-      ])
-    ];
-    exportToCSV(data, 'news_history.csv');
-    toast.success('ニュース履歴をエクスポートしました');
-  };
-
-  const exportPortfolio = () => {
-    const totalValue = calculateTotalValue();
-
-    const data = [
-      ['Asset', 'Amount', 'Value'],
-      ['Cash', '-', roundToTwoDecimal(cash).toFixed(2)],
-      ...Object.entries(portfolio).map(([company, amount]) => {
-        const stock = stocks.find(s => s.name === company);
-        const value = stock ? roundToTwoDecimal(stock.price * amount) : 0;
-        return [company, amount.toString(), value.toFixed(2)];
-      }),
-      ['Total', '-', totalValue.toFixed(2)]
-    ];
-    exportToCSV(data, 'portfolio.csv');
-    toast.success('ポートフォリオをエクスポートしました');
-  };
-
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const importPortfolio = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-500 p-4">
@@ -138,7 +55,7 @@ function App() {
             portfolio={portfolio} 
             stocks={stocks} 
             onExport={exportPortfolio}
-            onImport={importPortfolio}
+            onImport={setPortfolioAndCash}
             portfolioHistory={portfolioHistory}
           />
         </div>

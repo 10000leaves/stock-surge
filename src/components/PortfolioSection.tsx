@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { Stock } from '@/types/types';
+import { toast } from 'react-toastify';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DragSourceMonitor, DropTargetMonitor } from 'react-dnd';
@@ -42,7 +43,6 @@ const DraggableAsset: React.FC<{ name: string; value: number; onDrop: (from: str
   );
 };
 
-
 export const PortfolioSection: React.FC<PortfolioSectionProps> = ({ 
   cash, 
   portfolio, 
@@ -51,7 +51,7 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
   onImport,
   portfolioHistory
 }) => {
-  const [fileType, setFileType] = useState<'json' | 'csv'>('json');
+  const [fileType, setFileType] = useState<'csv' | 'json'>('csv');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -133,15 +133,35 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
             const data = JSON.parse(content);
             if (typeof data.cash === 'number' && typeof data.portfolio === 'object') {
               onImport(data.portfolio, data.cash);
+              toast.success('ポートフォリオを正常にインポートしました');
             } else {
               throw new Error('Invalid JSON format');
             }
           } else if (fileType === 'csv') {
-            // CSVの解析ロジックをここに実装
+            const lines = content.split('\n');
+            const headers = lines[0].split(',');
+            const cashIndex = headers.indexOf('Cash');
+            if (cashIndex === -1) throw new Error('Cash column not found');
+            
+            const data = lines[1].split(',');
+            const newCash = parseFloat(data[cashIndex]);
+            
+            const newPortfolio: Record<string, number> = {};
+            headers.forEach((header, index) => {
+              if (index !== cashIndex && header.trim() !== '') {
+                const amount = parseFloat(data[index]);
+                if (!isNaN(amount)) {
+                  newPortfolio[header] = amount;
+                }
+              }
+            });
+            
+            onImport(newPortfolio, newCash);
+            toast.success('ポートフォリオを正常にインポートしました');
           }
         } catch (error) {
           console.error('Error parsing file:', error);
-          alert('ファイルの解析に失敗しました。');
+          toast.error('ファイルの解析に失敗しました。');
         }
       };
       reader.readAsText(file);
@@ -161,9 +181,9 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
         <CardHeader className="flex flex-col sm:flex-row justify-between items-center">
           <CardTitle className="mb-2 sm:mb-0">ポートフォリオ</CardTitle>
           <div className="flex flex-wrap gap-2">
-            <select value={fileType} onChange={(e) => setFileType(e.target.value as 'json' | 'csv')} className="p-2 border rounded">
-              <option value="json">JSON</option>
+            <select value={fileType} onChange={(e) => setFileType(e.target.value as 'csv' | 'json')} className="p-2 border rounded">
               <option value="csv">CSV</option>
+              <option value="json">JSON</option>
             </select>
             <Button onClick={handleImport}>インポート</Button>
             <Button onClick={onExport}>エクスポート</Button>
